@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Staff Login</title>
+<style>
+  body {
+    font-family: -apple-system, sans-serif;
+    background: #faf7f2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+  }
+  .login-box {
+    background: white;
+    padding: 32px 28px;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    width: 90%;
+    max-width: 340px;
+  }
+  h1 { font-size: 20px; margin: 0 0 20px; color: #d84315; text-align: center; }
+  input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+  }
+  button {
+    width: 100%;
+    padding: 12px;
+    background: #d84315;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .error { color: #c0392b; font-size: 13px; margin-bottom: 12px; display: none; }
+</style>
+</head>
+<body>
+
+<div class="login-box">
+  <h1>Staff Login</h1>
+  <div class="error" id="error-msg"></div>
+  <input type="text" id="username" placeholder="Username" autocomplete="username">
+  <input type="password" id="password" placeholder="Password" autocomplete="current-password">
+  <button onclick="login()">Log In</button>
+</div>
+
+<script>
+async function login() {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  const errorEl = document.getElementById('error-msg');
+  errorEl.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Login failed');
+    }
+
+    const data = await res.json();
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('role', data.user.role);
+
+    if (data.user.role === 'admin') {
+      window.location.href = '/admin-dashboard';
+    } else if (data.user.role === 'kitchen') {
+      window.location.href = '/kitchen-dashboard';
+    }
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.style.display = 'block';
+  }
+}
+</script>
+
+</body>
+</html>

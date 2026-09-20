@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kitchen Dashboard</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #1a1a1a; color: #eee; margin: 0; padding: 20px; }
+  h1 { margin-bottom: 20px; }
+  .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .column h2 { font-size: 16px; text-transform: uppercase; opacity: 0.7; }
+  .card { background: #2a2a2a; border-radius: 8px; padding: 14px; margin-bottom: 12px; border-left: 4px solid #555; }
+  .card.pending { border-left-color: #e74c3c; }
+  .card.preparing { border-left-color: #f39c12; }
+  .card.ready { border-left-color: #2ecc71; }
+  .card h3 { margin: 0 0 8px; }
+  .card ul { margin: 0 0 10px; padding-left: 18px; }
+  .card button { background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+  .card button:hover { background: #2980b9; }
+  .table-badge { font-size: 13px; opacity: 0.6; }
+</style>
+</head>
+<body>
+<h1>Kitchen Dashboard</h1>
+<div class="board">
+  <div class="column"><h2>Pending</h2><div id="col-pending"></div></div>
+  <div class="column"><h2>Preparing</h2><div id="col-preparing"></div></div>
+  <div class="column"><h2>Ready</h2><div id="col-ready"></div></div>
+</div>
+
+<script>
+const nextStatus = { pending: 'preparing', preparing: 'ready', ready: 'served' };
+const nextLabel = { pending: 'Start Preparing', preparing: 'Mark Ready', ready: 'Mark Served' };
+
+
+async function loadOrders() {
+  const token = localStorage.getItem('token');
+  const res = await fetch('/api/kitchen/orders', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  if (res.status === 401) {
+    window.location.href = '/login';
+    return;
+  }
+  const orders = await res.json();
+  ['pending', 'preparing', 'ready'].forEach(status => {
+    document.getElementById('col-' + status).innerHTML = '';
+  });
+
+  (orders || []).forEach(order => {
+    const col = document.getElementById('col-' + order.status);
+    if (!col) return;
+
+    const itemsHtml = (order.items || [])
+      .map(i => `<li>${i.quantity}x ${i.product_name}${i.notes ? ' — ' + i.notes : ''}</li>`)
+      .join('');
+
+    const card = document.createElement('div');
+    card.className = 'card ' + order.status;
+    card.innerHTML = `
+      <span class="table-badge">Table ${order.table_id}</span>
+      <h3>Order #${order.id.slice(0, 8)}</h3>
+      <ul>${itemsHtml}</ul>
+      <button onclick="advance('${order.id}', '${order.status}')">${nextLabel[order.status]}</button>
+    `;
+    col.appendChild(card);
+  });
+}
+
+async function advance(orderId, currentStatus) {
+  const token = localStorage.getItem('token');
+  const newStatus = nextStatus[currentStatus];
+  await fetch(`/api/kitchen/orders/${orderId}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token
+    },
+    body: JSON.stringify({ status: newStatus })
+  });
+  loadOrders();
+}
+
+loadOrders();
+setInterval(loadOrders, 5000);
+</script>
+</body>
+</html>

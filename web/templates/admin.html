@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; color: #2b2b2b; }
+  h1 { margin: 0 0 20px; }
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .stat-card .label { font-size: 13px; color: #888; }
+  .stat-card .value { font-size: 24px; font-weight: 700; color: #d84315; margin-top: 4px; }
+
+  .section { background: white; border-radius: 10px; padding: 16px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .section h2 { font-size: 16px; margin: 0 0 14px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; }
+  th { color: #888; font-weight: 600; font-size: 12px; text-transform: uppercase; }
+
+  .form-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  input, select { padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+  input[type="text"], input[type="number"] { flex: 1; min-width: 100px; }
+  button { padding: 8px 14px; background: #d84315; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  button.danger { background: #c0392b; }
+  .product-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; }
+</style>
+</head>
+<body>
+
+<h1>Admin Dashboard</h1>
+
+<div class="stats">
+  <div class="stat-card">
+    <div class="label">Today's Revenue</div>
+    <div class="value" id="today-revenue">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Today's Orders</div>
+    <div class="value" id="today-orders">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">All-Time Revenue</div>
+    <div class="value" id="alltime-revenue">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">All-Time Orders</div>
+    <div class="value" id="alltime-orders">—</div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Table Settings</h2>
+  <div class="form-row">
+    <input type="number" id="table-count-input" min="5" max="20" placeholder="Number of tables (5-20)">
+    <button onclick="updateTableCount()">Update</button>
+  </div>
+  <div id="table-count-status" style="font-size:13px; color:#888;"></div>
+</div>
+
+<div class="section">
+  <h2>Add Product</h2>
+  <div class="form-row">
+    <input type="text" id="new-category-id" placeholder="Category ID" style="max-width:100px;">
+    <input type="text" id="new-name" placeholder="Product name">
+    <input type="number" id="new-price" placeholder="Price" step="0.01">
+  </div>
+  <div class="form-row">
+    <input type="text" id="new-description" placeholder="Description">
+  </div>
+  <button onclick="addProduct()">Add Product</button>
+</div>
+
+<div class="section">
+  <h2>Products</h2>
+  <div id="products-list">Loading...</div>
+</div>
+
+<div class="section">
+  <h2>Order History (last 100 served)</h2>
+  <table>
+    <thead>
+      <tr><th>Order</th><th>Table</th><th>Total</th><th>Time</th></tr>
+    </thead>
+    <tbody id="history-body">
+      <tr><td colspan="4">Loading...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) window.location.href = '/login';
+
+function authHeaders(extra = {}) {
+  return { 'Authorization': 'Bearer ' + token, ...extra };
+}
+
+async function loadDashboard() {
+  const res = await fetch('/api/admin/dashboard', { headers: authHeaders() });
+  if (res.status === 401 || res.status === 403) {
+    window.location.href = '/login';
+    return;
+  }
+  const data = await res.json();
+
+  document.getElementById('today-revenue').textContent = '₹' + data.today.total_revenue.toFixed(2);
+  document.getElementById('today-orders').textContent = data.today.total_orders;
+  document.getElementById('alltime-revenue').textContent = '₹' + data.all_time.total_revenue.toFixed(2);
+  document.getElementById('alltime-orders').textContent = data.all_time.total_orders;
+
+  const historyBody = document.getElementById('history-body');
+  if (!data.history || data.history.length === 0) {
+    historyBody.innerHTML = '<tr><td colspan="4">No served orders yet.</td></tr>';
+  } else {
+    historyBody.innerHTML = data.history.map(o => `
+      <tr>
+        <td>#${o.id.slice(0, 8)}</td>
+        <td>${o.table_id}</td>
+        <td>₹${o.total.toFixed(2)}</td>
+        <td>${new Date(o.created_at).toLocaleString()}</td>
+      </tr>
+    `).join('');
+  }
+}
+
+async function loadProducts() {
+  const res = await fetch('/api/admin/products', { headers: authHeaders() });
+  const products = await res.json();
+  const container = document.getElementById('products-list');
+
+  if (!products || products.length === 0) {
+    container.innerHTML = '<p style="color:#999;">No products yet.</p>';
+    return;
+  }
+
+  container.innerHTML = products.map(p => `
+    <div class="product-row">
+      <div>
+        <strong>${escapeHtml(p.name)}</strong> — ₹${p.price.toFixed(2)}
+        ${!p.is_available ? '<span style="color:#c0392b; font-size:12px;"> (paused)</span>' : ''}
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button style="background:${p.is_available ? '#f39c12' : '#2ecc71'};" onclick="toggleAvailability(${p.id})">
+          ${p.is_available ? 'Pause' : 'Resume'}
+        </button>
+        <button class="danger" onclick="deleteProduct(${p.id})">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function toggleAvailability(id) {
+  const res = await fetch(`/api/admin/products/${id}/toggle-availability`, {
+    method: 'PATCH',
+    headers: authHeaders()
+  });
+
+  if (!res.ok) {
+    alert('Failed to update availability');
+    return;
+  }
+  loadProducts();
+}
+
+async function addProduct() {
+  const categoryId = parseInt(document.getElementById('new-category-id').value);
+  const name = document.getElementById('new-name').value;
+  const description = document.getElementById('new-description').value;
+  const price = parseFloat(document.getElementById('new-price').value);
+
+  if (!categoryId || !name || !price) {
+    alert('Category ID, name, and price are required.');
+    return;
+  }
+
+  const res = await fetch('/api/admin/products', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ category_id: categoryId, name, description, price })
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.error || 'Failed to add product');
+    return;
+  }
+
+  document.getElementById('new-category-id').value = '';
+  document.getElementById('new-name').value = '';
+  document.getElementById('new-description').value = '';
+  document.getElementById('new-price').value = '';
+  loadProducts();
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Delete this product?')) return;
+
+  const res = await fetch(`/api/admin/products/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders()
+  });
+
+  if (!res.ok) {
+    alert('Failed to delete product');
+    return;
+  }
+  loadProducts();
+}
+
+async function updateTableCount() {
+  const count = parseInt(document.getElementById('table-count-input').value);
+  const statusEl = document.getElementById('table-count-status');
+
+  const res = await fetch('/api/admin/settings/tables', {
+    method: 'PATCH',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ total_tables: count })
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    statusEl.textContent = err.error || 'Failed to update';
+    statusEl.style.color = '#c0392b';
+    return;
+  }
+
+  statusEl.textContent = 'Updated to ' + count + ' tables.';
+  statusEl.style.color = '#2ecc71';
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+loadDashboard();
+loadProducts();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orange Mango</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    margin: 0;
+    background: linear-gradient(180deg, #d84315 0%, #bf360c 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .top-bar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 16px 20px;
+  }
+  .login-link {
+    color: white;
+    text-decoration: none;
+    font-size: 14px;
+    border: 1px solid rgba(255,255,255,0.5);
+    padding: 6px 14px;
+    border-radius: 20px;
+  }
+  .hero {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+  }
+  .hero h1 {
+    color: white;
+    font-size: 32px;
+    margin: 0 0 6px;
+  }
+  .hero p {
+    color: rgba(255,255,255,0.85);
+    font-size: 15px;
+    margin: 0 0 36px;
+  }
+  .order-btn {
+    background: white;
+    color: #d84315;
+    border: none;
+    padding: 16px 40px;
+    font-size: 18px;
+    font-weight: 700;
+    border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+  }
+  .order-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .status-note {
+    color: rgba(255,255,255,0.9);
+    font-size: 13px;
+    margin-top: 16px;
+    max-width: 280px;
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <a href="/login" class="login-link">Staff Login</a>
+</div>
+
+<div class="hero">
+  <h1>🍔 Orange Mango</h1>
+  <p>Fresh burgers, made to order</p>
+  <button class="order-btn" id="order-btn" onclick="orderNow()">Order Now</button>
+  <div class="status-note" id="status-note"></div>
+</div>
+
+<script>
+async function orderNow() {
+  const btn = document.getElementById('order-btn');
+  const note = document.getElementById('status-note');
+  btn.disabled = true;
+  btn.textContent = 'Finding a table...';
+  note.textContent = '';
+
+  try {
+    const res = await fetch('/api/tables/next-available');
+
+    if (res.status === 409) {
+      const err = await res.json();
+      note.textContent = err.error;
+      btn.disabled = true;
+      btn.textContent = 'Order Now';
+      return;
+    }
+
+    if (!res.ok) throw new Error('Something went wrong');
+
+    const data = await res.json();
+    window.location.href = '/order/' + data.table_number;
+  } catch (err) {
+    note.textContent = 'Something went wrong. Please try again.';
+    btn.disabled = false;
+    btn.textContent = 'Order Now';
+  }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+
+    restart: always
+
+    environment:
+      POSTGRES_USER: orangemango
+      POSTGRES_PASSWORD: binarySearch_3
+      POSTGRES_DB: qr_ordering
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

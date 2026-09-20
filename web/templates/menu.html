@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Menu</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #faf7f2;
+    color: #2b2b2b;
+    margin: 0;
+    padding-bottom: 90px; /* room for floating cart bar */
+  }
+  header {
+    background: #d84315;
+    color: white;
+    padding: 20px 16px;
+    text-align: center;
+  }
+  header h1 { margin: 0; font-size: 22px; }
+  .table-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    margin-top: 6px;
+  }
+
+  .category-nav {
+    display: flex;
+    overflow-x: auto;
+    gap: 8px;
+    padding: 12px 16px;
+    background: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  .category-nav button {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid #ddd;
+    background: white;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .category-nav button.active {
+    background: #d84315;
+    color: white;
+    border-color: #d84315;
+  }
+
+  .category-section { padding: 20px 16px 0; }
+  .category-section h2 { font-size: 18px; margin: 0 0 12px; color: #d84315; }
+
+  .product-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    background: white;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .product-info { flex: 1; }
+  .product-info h3 { margin: 0 0 4px; font-size: 16px; }
+  .product-info p { margin: 0 0 8px; font-size: 13px; color: #777; line-height: 1.4; }
+  .product-price { font-weight: 600; font-size: 15px; }
+  .unavailable { opacity: 0.5; }
+  .unavailable .product-price::after {
+    content: " (unavailable)";
+    color: #c0392b;
+    font-weight: 400;
+    font-size: 12px;
+  }
+
+  .qty-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .qty-control button {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid #d84315;
+    background: white;
+    color: #d84315;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .qty-control button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  .qty-control span { min-width: 16px; text-align: center; font-weight: 600; }
+
+  .add-btn {
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid #d84315;
+    background: white;
+    color: #d84315;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .add-btn:disabled { opacity: 0.3; cursor: not-allowed; border-color: #aaa; color: #aaa; }
+
+  .status-msg { text-align: center; padding: 40px 16px; color: #999; }
+
+  /* Floating cart bar */
+  .cart-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #d84315;
+    color: white;
+    padding: 14px 16px;
+    display: none;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    z-index: 20;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.15);
+  }
+  .cart-bar.visible { display: flex; }
+  .cart-bar .cart-info { font-size: 14px; }
+  .cart-bar .cart-total { font-size: 16px; font-weight: 700; }
+  .cart-bar .view-cart { font-size: 14px; text-decoration: underline; }
+
+  /* Cart modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    align-items: flex-end;
+    z-index: 30;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal {
+    background: white;
+    width: 100%;
+    max-height: 85vh;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 16px;
+    overflow-y: auto;
+  }
+  .modal h2 { margin: 0 0 16px; font-size: 18px; }
+  .cart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+  }
+  .cart-item-name { font-size: 14px; }
+  .cart-item-price { font-size: 13px; color: #777; }
+  .cart-summary {
+    display: flex;
+    justify-content: space-between;
+    padding: 16px 0;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .checkout-btn {
+    width: 100%;
+    padding: 14px;
+    background: #d84315;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .checkout-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .close-modal {
+    background: none;
+    border: none;
+    font-size: 14px;
+    color: #999;
+    display: block;
+    margin: 0 0 12px auto;
+    cursor: pointer;
+  }
+  .empty-cart { text-align: center; color: #999; padding: 20px 0; }
+
+  .order-success {
+    text-align: center;
+    padding: 30px 16px;
+  }
+  .order-success .checkmark { font-size: 48px; margin-bottom: 12px; }
+  .order-success h2 { margin: 0 0 8px; }
+  .order-success p { color: #777; margin: 0 0 20px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍔 Orange Mango</h1>
+  <div class="table-badge" id="table-badge">Table —</div>
+</header>
+
+<nav class="category-nav" id="category-nav"></nav>
+
+<main id="menu-container">
+  <div class="status-msg">Loading menu...</div>
+</main>
+
+<div class="cart-bar" id="cart-bar" onclick="openCart()">
+  <div class="cart-info"><span id="cart-count">0</span> items</div>
+  <div class="cart-total" id="cart-total">₹0</div>
+  <div class="view-cart">View cart →</div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay" onclick="closeCartIfOverlay(event)">
+  <div class="modal">
+    <button class="close-modal" onclick="closeCart()">Close ✕</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+const pathParts = window.location.pathname.split('/');
+const tableID = pathParts[pathParts.length - 1];
+document.getElementById('table-badge').textContent = 'Table ' + tableID;
+
+let productsById = {};
+let cart = {}; // productId -> quantity
+
+async function loadMenu() {
+  const container = document.getElementById('menu-container');
+  const nav = document.getElementById('category-nav');
+
+  try {
+    const res = await fetch('/api/menu');
+    if (!res.ok) throw new Error('Failed to load menu');
+    const menu = await res.json();
+
+    if (!menu || menu.length === 0) {
+      container.innerHTML = '<div class="status-msg">Menu is not available right now. Please check with staff.</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    nav.innerHTML = '';
+
+    menu.forEach((entry, index) => {
+      const category = entry.category;
+      const products = entry.products || [];
+
+      const navBtn = document.createElement('button');
+      navBtn.textContent = category.name;
+      navBtn.className = index === 0 ? 'active' : '';
+      navBtn.onclick = () => scrollToCategory(category.id, navBtn);
+      nav.appendChild(navBtn);
+
+      const section = document.createElement('section');
+      section.className = 'category-section';
+      section.id = 'category-' + category.id;
+
+      const heading = document.createElement('h2');
+      heading.textContent = category.name;
+      section.appendChild(heading);
+
+      if (products.length === 0) {
+        const empty = document.createElement('p');
+        empty.style.color = '#aaa';
+        empty.style.fontSize = '14px';
+        empty.textContent = 'No items in this category yet.';
+        section.appendChild(empty);
+      }
+
+      products.forEach(product => {
+        productsById[product.id] = product;
+
+        const card = document.createElement('div');
+        card.className = 'product-card' + (product.is_available ? '' : ' unavailable');
+        card.id = 'product-card-' + product.id;
+        card.innerHTML = `
+          <div class="product-info">
+            <h3>${escapeHtml(product.name)}</h3>
+            <p>${escapeHtml(product.description || '')}</p>
+            <div class="product-price">₹${product.price.toFixed(2)}</div>
+          </div>
+          <div id="control-${product.id}"></div>
+        `;
+        section.appendChild(card);
+      });
+
+      container.appendChild(section);
+    });
+
+    // Render Add/qty controls only now, after every card is actually in the DOM.
+    // (Doing this inline during the loop above was the bug — the control divs
+    // didn't exist in the document yet at that point, so nothing rendered.)
+    restorePendingCart();
+    Object.keys(productsById).forEach(renderProductControl);
+  } catch (err) {
+    container.innerHTML = '<div class="status-msg">Something went wrong loading the menu. Please refresh or ask staff for help.</div>';
+    console.error(err);
+  }
+}
+
+function restorePendingCart() {
+  const saved = localStorage.getItem('pendingCart');
+  if (!saved) return;
+
+  localStorage.removeItem('pendingCart'); // one-time use, don't leak into future page loads
+
+  try {
+    const savedCart = JSON.parse(saved);
+    let restoredAny = false;
+
+    for (const [productId, qty] of Object.entries(savedCart)) {
+      // Only restore items that still exist and are still available on the new table's menu
+      if (productsById[productId] && productsById[productId].is_available) {
+        cart[productId] = qty;
+        renderProductControl(Number(productId));
+        restoredAny = true;
+      }
+    }
+
+    if (restoredAny) {
+      updateCartBar();
+      showToast('Your cart was restored for this table.');
+    }
+  } catch (err) {
+    console.error('Failed to restore cart:', err);
+  }
+}
+
+
+function showToast(message) {
+  const toast = document.createElement('div');
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    background: #2b2b2b; color: white; padding: 10px 20px; border-radius: 8px;
+    font-size: 13px; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+function renderProductControl(productId) {
+  const product = productsById[productId];
+  const el = document.getElementById('control-' + productId);
+  if (!el) return;
+
+  const qty = cart[productId] || 0;
+
+  if (!product.is_available) {
+    el.innerHTML = `<button class="add-btn" disabled>Add</button>`;
+    return;
+  }
+
+  if (qty === 0) {
+    el.innerHTML = `<button class="add-btn" onclick="addToCart(${productId})">Add</button>`;
+  } else {
+    el.innerHTML = `
+      <div class="qty-control">
+        <button onclick="decrementCart(${productId})">−</button>
+        <span>${qty}</span>
+        <button onclick="addToCart(${productId})">+</button>
+      </div>
+    `;
+  }
+}
+
+function addToCart(productId) {
+  cart[productId] = (cart[productId] || 0) + 1;
+  renderProductControl(productId);
+  updateCartBar();
+}
+
+function decrementCart(productId) {
+  if (!cart[productId]) return;
+  cart[productId] -= 1;
+  if (cart[productId] <= 0) delete cart[productId];
+  renderProductControl(productId);
+  updateCartBar();
+}
+
+function cartTotal() {
+  let total = 0;
+  for (const [id, qty] of Object.entries(cart)) {
+    total += productsById[id].price * qty;
+  }
+  return total;
+}
+
+function cartCount() {
+  return Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+}
+
+function updateCartBar() {
+  const bar = document.getElementById('cart-bar');
+  const count = cartCount();
+
+  if (count === 0) {
+    bar.classList.remove('visible');
+    return;
+  }
+
+  bar.classList.add('visible');
+  document.getElementById('cart-count').textContent = count;
+  document.getElementById('cart-total').textContent = '₹' + cartTotal().toFixed(2);
+}
+
+function openCart() {
+  renderCartModal();
+  document.getElementById('modal-overlay').classList.add('visible');
+}
+
+function closeCart() {
+  document.getElementById('modal-overlay').classList.remove('visible');
+}
+
+function closeCartIfOverlay(event) {
+  if (event.target.id === 'modal-overlay') closeCart();
+}
+
+function renderCartModal() {
+  const content = document.getElementById('modal-content');
+  const entries = Object.entries(cart);
+
+  if (entries.length === 0) {
+    content.innerHTML = `
+      <h2>Your Cart</h2>
+      <div class="empty-cart">Your cart is empty.</div>
+    `;
+    return;
+  }
+
+  let itemsHtml = '';
+  entries.forEach(([id, qty]) => {
+    const product = productsById[id];
+    itemsHtml += `
+      <div class="cart-item">
+        <div>
+          <div class="cart-item-name">${escapeHtml(product.name)}</div>
+          <div class="cart-item-price">₹${product.price.toFixed(2)} × ${qty}</div>
+        </div>
+        <div class="qty-control">
+          <button onclick="decrementCart(${id}); renderCartModal();">−</button>
+          <span>${qty}</span>
+          <button onclick="addToCart(${id}); renderCartModal();">+</button>
+        </div>
+      </div>
+    `;
+  });
+
+  content.innerHTML = `
+    <h2>Your Cart</h2>
+    ${itemsHtml}
+    <div class="cart-summary">
+      <span>Total</span>
+      <span>₹${cartTotal().toFixed(2)}</span>
+    </div>
+    <button class="checkout-btn" onclick="showPaymentOptions()">Proceed to Payment</button>
+  `;
+}
+
+let selectedPaymentMethod = null;
+let publicConfig = null;
+
+async function loadPublicConfig() {
+  if (publicConfig) return publicConfig;
+  const res = await fetch('/api/config');
+  publicConfig = await res.json();
+  return publicConfig;
+}
+
+async function showPaymentOptions() {
+  const config = await loadPublicConfig();
+  const content = document.getElementById('modal-content');
+
+  content.innerHTML = `
+    <h2>Select Payment Method</h2>
+    <div class="cart-summary" style="border-bottom:1px solid #eee; padding-bottom:16px;">
+      <span>Total to pay</span>
+      <span>₹${cartTotal().toFixed(2)}</span>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px; margin:16px 0;">
+      <button class="add-btn" style="width:100%; padding:14px;" onclick="selectPayment('upi')">📱 Pay via UPI</button>
+      <button class="add-btn" style="width:100%; padding:14px;" onclick="selectPayment('cash')">💵 Pay via Cash</button>
+    </div>
+    <div id="payment-detail"></div>
+  `;
+}
+
+function selectPayment(method) {
+  selectedPaymentMethod = method;
+  const detail = document.getElementById('payment-detail');
+
+  if (method === 'upi') {
+    const upiLink = `upi://pay?pa=${publicConfig.upi_id}&pn=OrangeMango&am=${cartTotal().toFixed(2)}&cu=INR`;
+    detail.innerHTML = `
+      <div style="text-align:center; padding:16px; background:#f9f9f9; border-radius:10px; margin-bottom:12px;">
+        <p style="font-size:14px; margin:0 0 10px;">Pay ₹${cartTotal().toFixed(2)} to:</p>
+        <p style="font-weight:700; font-size:16px; margin:0 0 14px;">${publicConfig.upi_id}</p>
+        <a href="${upiLink}" style="display:inline-block; background:#d84315; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; font-weight:600;">Open UPI App</a>
+      </div>
+      <button class="checkout-btn" onclick="placeOrder('upi')">I've Paid — Place Order</button>
+    `;
+  } else {
+    detail.innerHTML = `
+      <div style="text-align:center; padding:16px; background:#f9f9f9; border-radius:10px; margin-bottom:12px;">
+        <p style="font-size:14px; margin:0;">Please pay cash to the staff when your order arrives.</p>
+      </div>
+      <button class="checkout-btn" onclick="placeOrder('cash')">Confirm Cash Order</button>
+    `;
+  }
+}
+
+async function placeOrder(paymentMethod) {
+  const btn = document.querySelector('.checkout-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Placing order...';
+  }
+
+  const items = Object.entries(cart).map(([productId, quantity]) => ({
+    product_id: parseInt(productId),
+    quantity: quantity
+  }));
+
+  try {
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        table_id: parseInt(tableID),
+        payment_method: paymentMethod,
+        items: items
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to place order');
+    }
+
+    const order = await res.json();
+
+    if (paymentMethod === 'cash') {
+      sendWhatsAppConfirmation(order);
+    }
+
+    showOrderSuccess(order);
+    cart = {};
+    updateCartBar();
+    Object.keys(productsById).forEach(renderProductControl);
+  } catch (err) {
+    const isTableTaken = err.message && err.message.includes('already has an active order');
+
+    if (isTableTaken) {
+      await handleTableTaken();
+    } else {
+      alert(err.message || 'Something went wrong placing your order. Please try again or ask staff for help.');
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Place Order';
+      }
+    }
+  }
+}
+
+
+async function handleTableTaken() {
+  const content = document.getElementById('modal-content');
+  content.innerHTML = `
+    <div class="status-msg">Someone just took this table. Finding you another one...</div>
+  `;
+
+  try {
+    const res = await fetch('/api/tables/next-available');
+
+    if (res.status === 409) {
+      content.innerHTML = `
+        <div class="order-success">
+          <h2>We're full right now</h2>
+          <p>All our tables are currently occupied. Please try again in a few minutes, or check with staff.</p>
+          <button class="checkout-btn" onclick="closeCart()">Close</button>
+        </div>
+      `;
+      return;
+    }
+
+    if (!res.ok) throw new Error('failed to find another table');
+
+    const data = await res.json();
+
+    // Preserve the cart across the redirect so the customer doesn't have to rebuild it
+    localStorage.setItem('pendingCart', JSON.stringify(cart));
+
+    window.location.href = '/order/' + data.table_number;
+  } catch (err) {
+    content.innerHTML = `
+      <div class="status-msg">Something went wrong finding another table. Please ask staff for help.</div>
+    `;
+  }
+}
+
+function sendWhatsAppConfirmation(order) {
+  const itemLines = order.items.map(i => `${i.quantity}x ${i.product_name}`).join('%0A');
+  const message =
+    `New Cash Order%0A` +
+    `Order: %23${order.id.slice(0, 8)}%0A` +
+    `Table: ${order.table_id}%0A` +
+    `Items:%0A${itemLines}%0A` +
+    `Total: ₹${order.total.toFixed(2)}%0A` +
+    `Payment: Cash`;
+
+  const whatsappUrl = `https://wa.me/${publicConfig.whatsapp_number}?text=${message}`;
+  window.open(whatsappUrl, '_blank');
+}
+
+let trackingInterval = null;
+
+function showOrderTracking(orderId) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay visible';
+  overlay.id = 'tracking-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <button class="close-modal" onclick="closeTracking()">Close ✕</button>
+      <div id="tracking-content">
+        <div class="status-msg">Loading order status...</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  pollOrderStatus(orderId);
+  trackingInterval = setInterval(() => pollOrderStatus(orderId), 4000);
+}
+
+async function confirmOrderReceived(orderId) {
+  try {
+    const res = await fetch(`/api/orders/${orderId}/confirm-served`, {
+      method: 'PATCH'
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Could not confirm order');
+    }
+    // immediately re-poll to reflect 'served' status and stop tracking
+    pollOrderStatus(orderId);
+  } catch (err) {
+    alert(err.message || 'Something went wrong confirming your order.');
+  }
+}
+
+async function pollOrderStatus(orderId) {
+  try {
+    const res = await fetch(`/api/orders/${orderId}`);
+    if (!res.ok) throw new Error('not found');
+    const order = await res.json();
+    renderTracking(order);
+  } catch (err) {
+    const content = document.getElementById('tracking-content');
+    if (content) content.innerHTML = '<div class="status-msg">Could not load order status.</div>';
+  }
+}
+
+const statusSteps = ['pending', 'preparing', 'ready', 'served'];
+const statusLabels = {
+  pending: 'Order received',
+  preparing: 'Being prepared',
+  ready: 'Ready to serve',
+  served: 'Served — enjoy!'
+};
+
+function renderTracking(order) {
+  const content = document.getElementById('tracking-content');
+  if (!content) return;
+
+  const currentIndex = statusSteps.indexOf(order.status);
+
+  const stepsHtml = statusSteps.map((step, i) => {
+    const done = i <= currentIndex;
+    return `
+      <div style="display:flex; align-items:center; gap:10px; padding:8px 0; opacity:${done ? '1' : '0.4'}">
+        <div style="width:22px; height:22px; border-radius:50%; background:${done ? '#d84315' : '#ddd'}; color:white; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0;">
+          ${done ? '✓' : ''}
+        </div>
+        <span style="font-size:14px; font-weight:${i === currentIndex ? '700' : '400'}">${statusLabels[step]}</span>
+      </div>
+    `;
+  }).join('');
+
+  const itemsHtml = (order.items || [])
+    .map(i => `<div class="cart-item-price">${i.quantity}x ${escapeHtml(i.product_name || '')}</div>`)
+    .join('');
+
+  const confirmButtonHtml = order.status === 'ready'
+    ? `<button class="checkout-btn" style="margin-top:16px;" onclick="confirmOrderReceived('${order.id}')">I've Received My Order</button>`
+    : '';
+
+  content.innerHTML = `
+    <h2>Order #${order.id.slice(0, 8)}</h2>
+    <div style="margin: 16px 0;">${stepsHtml}</div>
+    <div style="border-top:1px solid #eee; padding-top:12px; margin-top:12px;">
+      ${itemsHtml}
+      <div class="cart-summary"><span>Total</span><span>₹${order.total.toFixed(2)}</span></div>
+    </div>
+    ${confirmButtonHtml}
+  `;
+  if (order.status === 'served') {
+    clearInterval(trackingInterval);
+    localStorage.removeItem('activeOrderId');
+  }
+}
+
+function closeTracking() {
+  const overlay = document.getElementById('tracking-overlay');
+  if (overlay) overlay.remove();
+  if (trackingInterval) clearInterval(trackingInterval);
+}
+
+// Resume tracking if the customer refreshes the page mid-order
+const savedOrderId = localStorage.getItem('activeOrderId');
+const savedTable = localStorage.getItem('activeOrderTable');
+if (savedOrderId && savedTable === tableID) {
+  showOrderTracking(savedOrderId);
+}
+	
+function showOrderSuccess(order) {
+  localStorage.setItem('activeOrderId', order.id);
+  localStorage.setItem('activeOrderTable', tableID);
+  closeCart();
+  showOrderTracking(order.id);
+}
+
+
+function scrollToCategory(categoryId, clickedBtn) {
+  document.querySelectorAll('.category-nav button').forEach(b => b.classList.remove('active'));
+  clickedBtn.classList.add('active');
+  const el = document.getElementById('category-' + categoryId);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// If this table already has an active order (e.g. staff resumed the page, or a phone reload lost localStorage),
+// check the backend directly and resume tracking rather than letting them place a duplicate order.
+async function checkForActiveOrderOnLoad() {
+  const savedOrderId = localStorage.getItem('activeOrderId');
+  const savedTable = localStorage.getItem('activeOrderTable');
+
+  if (savedOrderId && savedTable === tableID) {
+    showOrderTracking(savedOrderId);
+    return;
+  }
+
+  // No local record — but the table might still have an active order from another device/session.
+  // We don't have a "get active order by table" public endpoint, so we rely on the error message
+  // if they try to order; this is a lightweight enough UX for now.
+}
+
+checkForActiveOrderOnLoad();
+
+loadMenu();
+</script>
+
+</body>
+</html>
